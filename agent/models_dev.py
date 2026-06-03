@@ -482,6 +482,18 @@ def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilit
         supports_vision = bool(entry.get("attachment", False))
     supports_reasoning = bool(entry.get("reasoning", False))
 
+    # Local capability overrides for models that support vision but aren't
+    # yet flagged in models.dev metadata. New model releases land in Hermes
+    # before models.dev catches up — this keeps image routing working in
+    # the gap. Remove entries once models.dev marks the model natively.
+    _VISION_OVERRIDES = {
+        ("minimax", "MiniMax-M3"),
+        ("minimax-cn", "MiniMax-M3"),
+        ("minimax-oauth", "MiniMax-M3"),
+    }
+    if (provider, model) in _VISION_OVERRIDES:
+        supports_vision = True
+
     # Extract limits
     limit = entry.get("limit", {})
     if not isinstance(limit, dict):
