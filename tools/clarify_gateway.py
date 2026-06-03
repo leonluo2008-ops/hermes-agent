@@ -168,6 +168,16 @@ def get_pending_for_session(session_key: str) -> Optional[_ClarifyEntry]:
     Used by the text-fallback intercept in ``_handle_message`` — when a
     clarify is awaiting a free-form text response, the next user message
     in that session is captured as the answer.
+
+    **2026-06-03 修复** (hermes-agent gateway clarify 文本 fallback):
+    原实现只返回 ``awaiting_text=True`` 的 entry——意味着带 choices 的 4 选 1
+    clarify 永远不返回,用户文本回复不会被拦截,只能等 10 分钟超时。
+
+    根因:飞书 adapter 没实现 send_clarify 的按钮渲染,飞书只能走 text fallback
+    路径——必须让 choices 模式也走文本拦截。
+
+    修复:返回**任何**pending entry(不限制 awaiting_text),让 L5848 的 / 开头
+    过滤自然处理"用户想发命令不是回 clarify"的场景。
     """
     with _lock:
         ids = _session_index.get(session_key) or []
@@ -175,8 +185,8 @@ def get_pending_for_session(session_key: str) -> Optional[_ClarifyEntry]:
             entry = _entries.get(cid)
             if entry is None:
                 continue
-            if entry.awaiting_text:
-                return entry
+            # 返回**任何**pending entry (2026-06-03 修复:不限制 awaiting_text)
+            return entry
         return None
 
 
